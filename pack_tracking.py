@@ -97,8 +97,8 @@ import stats
 
 DRIVER = "{SQL Server}"
 SERVER = "DESKTOP-5R7EE8O\\SQLEXPRESS"
-DATABASE = "testDB"
-TABLE = "dbo.pack_test"
+DATABASE = "player_packs"
+TABLE = "dbo.pack_tracking"
 
 
 class DisplayApp:
@@ -182,9 +182,13 @@ class DisplayApp:
         self.setBindings()
 
         # set up system wide tracking variables
-        self.curr_pack_id = self.data["pack_id"].unique().max() + 1
-        self.curr_id = self.data.index.unique().max() + 1
-        self.curr_pack_displaying = None
+        try:
+            self.curr_pack_id = self.data["pack_id"].unique().max() + 1
+            self.curr_id = self.data.index.unique().max() + 1
+            self.curr_pack_displaying = None
+        except ValueError:
+            self.curr_pack_id = 1
+            self.curr_id = 1
 
     def db_connect(self, driver, server, database, trust="yes"):
         """ connects to the database, sets a connection object
@@ -989,7 +993,6 @@ class Listing_Dialog(NumberListing_Dialog):
 
             # player entry field
             w = tk.StringVar()
-            w.set("ben")
             tk.Entry(master, textvariable=w).grid(row=i + 4, column=0)
 
             # item type
