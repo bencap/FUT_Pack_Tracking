@@ -1349,7 +1349,7 @@ class Selling_Dialog(NumberListing_Dialog):
             self.result = self.parent.data[
                 self.parent.data["name"].str.match(self.result.get())
             ].index
-            self.result = self.result[0] + 1
+            self.result = self.result[0]
 
         self.value = int(self.value.get())
 
@@ -1455,7 +1455,7 @@ class Delete_Dialog(Selling_Dialog):
             self.result = self.parent.data[
                 self.parent.data["name"].str.match(self.result.get())
             ].index
-            self.result = self.result[0] + 1
+            self.result = self.result[0]
 
         return
 
