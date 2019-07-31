@@ -95,10 +95,17 @@ import stats
 # id (primary key)      pack_id     pack_type     pack_price     player      type       bid    bin  sold
 #       int               int       nchar(10)         int       nchar(24)  nchar(10)    int    int  int
 
+# test db
 DRIVER = "{SQL Server}"
 SERVER = "DESKTOP-5R7EE8O\\SQLEXPRESS"
-DATABASE = "player_packs"
-TABLE = "dbo.pack_tracking"
+DATABASE = "test_db"
+TABLE = "dbo.pack_test"
+
+# # production db
+# DRIVER = "{SQL Server}"
+# SERVER = "DESKTOP-5R7EE8O\\SQLEXPRESS"
+# DATABASE = "player_packs"
+# TABLE = "dbo.pack_tracking"
 
 
 class DisplayApp:
