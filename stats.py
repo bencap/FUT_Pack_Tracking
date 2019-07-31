@@ -55,7 +55,11 @@ def avg_profit( data ):
     :rtype: Float
     """
 
-    return round( net_profit( data ) / len( data.drop_duplicates( "pack_id" ) ), 2 )
+    try:
+        avg = round( net_profit( data ) / len( data.drop_duplicates( "pack_id" ) ), 2 )
+        return avg
+    except ZeroDivisionError:
+        return 0
 
 def test( data, assertions ):
     """ tests the stat gathering functions from this file
