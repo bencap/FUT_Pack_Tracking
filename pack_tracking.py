@@ -77,7 +77,7 @@ This file contains methods:
         * _on_mousewheel( self, event ) - Moves the items w/in the window on scroll action
         * _configure_window( self, event ) - Configures the window on resize events
 
-Created by Ben Capodanno on July 23rd, 2019. Updated August 1st, 2019.
+Created by Ben Capodanno on July 23rd, 2019. Updated August 6th, 2019.
 """
 
 import tkinter as tk
@@ -151,6 +151,8 @@ class DisplayApp:
             "manager",
             "coach",
         ]
+
+        self.PALLETE = ["#A6206A", "#2F9395", "#F8B195", "#474747", "#F6903D"]  # nice
 
         # create a tk object, which is the root window
         self.root = tk.Tk()
@@ -670,22 +672,60 @@ class DisplayApp:
         lab = tk.Label(self.canvas.scrollwindow, text="id")
         lab.config(font=(8), anchor="center", width=9)
         lab.grid(row=0, column=0, padx=(7, 0))
+
         for col in enumerate(data):
             lab = tk.Label(self.canvas.scrollwindow, text=col[1])
             lab.config(font=(8), anchor="center", width=9)
             lab.grid(row=0, column=col[0] + 1, padx=(7, 0))
 
+        ttk.Separator(self.canvas.scrollwindow, orient=tk.HORIZONTAL).grid(
+            column=0, row=1, columnspan=10, sticky="ew"
+        )
+
         # grids and displays player data
+        # for maintenance, rows are placed like...
+        # row 0: headers
+        # row 1: separator
+        # row (1 through N) * 2: Data
+        # row ((1 through N) * 2) + 1 if the next row is a diff pack: separators
+
         for rdx, row in data.iterrows():
             lab = tk.Label(self.canvas.scrollwindow, text=rdx)
-            lab.config(font=(6))
-            lab.grid(row=rdx + 1, column=0, padx=(3, 0))
+            lab.config(
+                font=(6), foreground=self.PALLETE[row["pack_id"] % len(self.PALLETE)]
+            )
+            lab.grid(row=(rdx) * 2, column=0, padx=(3, 0))
+
             for col in enumerate(data):
+
                 lab = tk.Label(self.canvas.scrollwindow, text=row[col[1]])
                 lab.config(font=(6))
+
                 if col[1] == "player":
                     lab.config(width=8)
-                lab.grid(row=rdx + 1, column=col[0] + 1, padx=(3, 0))
+
+                if col[1] != "sold":
+                    lab.config(
+                        foreground=self.PALLETE[row["pack_id"] % len(self.PALLETE)]
+                    )
+                else:
+                    if np.isnan(row[col[1]]):
+                        lab.config(foreground="red")
+                    else:
+                        lab.config(foreground="green")
+
+                lab.grid(row=(rdx) * 2, column=col[0] + 1, padx=(3, 0))
+
+            # separate based on pack id. since index is not necessarily linear, get the series of items
+            # after the current index, then get the first index of that series to find the pack id of next item
+            # try/except catches the last row of data, but we don't need to separate as there is nothing after it
+            try:
+                if data["pack_id"].loc[rdx:].iloc[1] != row["pack_id"]:
+                    ttk.Separator(self.canvas.scrollwindow, orient=tk.HORIZONTAL).grid(
+                        column=0, row=(rdx * 2) + 1, columnspan=10, sticky="ew"
+                    )
+            except IndexError:
+                pass
 
         # update stats pane each time records are written
         # this keeps the stats pane consistent w/ all filters applied and any new players added
