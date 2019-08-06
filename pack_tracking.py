@@ -490,7 +490,7 @@ class DisplayApp:
         # this gets the indices matching the current selection and sets the current index to those rows
         curselection = self.data["pack_type"].unique()[self.cstBox.curselection()[0]]
         self.curr_index = self.data[
-            self.data["pack_type"].str.match(str(curselection),case=False)
+            self.data["pack_type"].str.match(str(curselection), case=False)
         ].index
 
         self.pkBox.delete(0, "end")
@@ -1438,6 +1438,7 @@ class Selling_Dialog(NumberListing_Dialog):
 
         try:
             search = int(search)
+
             if search >= self.parent.curr_id or search < 0:
                 return -2
         except ValueError:
