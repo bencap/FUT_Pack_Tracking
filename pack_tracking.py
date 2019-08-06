@@ -104,10 +104,10 @@ import stats
 # TABLE = "dbo.pack_test"
 
 # # production db
- DRIVER = "{SQL Server}"
- SERVER = "DESKTOP-5R7EE8O\\SQLEXPRESS"
- DATABASE = "player_packs"
- TABLE = "dbo.pack_tracking"
+DRIVER = "{SQL Server}"
+SERVER = "DESKTOP-5R7EE8O\\SQLEXPRESS"
+DATABASE = "player_packs"
+TABLE = "dbo.pack_tracking"
 
 
 class DisplayApp:
