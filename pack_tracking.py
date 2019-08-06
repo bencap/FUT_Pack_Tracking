@@ -490,7 +490,7 @@ class DisplayApp:
         # this gets the indices matching the current selection and sets the current index to those rows
         curselection = self.data["pack_type"].unique()[self.cstBox.curselection()[0]]
         self.curr_index = self.data[
-            self.data["pack_type"].str.match(str(curselection))
+            self.data["pack_type"].str.match(str(curselection),case=False)
         ].index
 
         self.pkBox.delete(0, "end")
@@ -576,7 +576,7 @@ class DisplayApp:
                     int(self.curr_pack_id),
                     pack_price - qs_price,
                     pack_type,
-                    row[0],
+                    row[0].capitalize(),
                     row[1],
                     int(row[2]),
                     int(row[3]),
@@ -812,7 +812,7 @@ class DisplayApp:
         :returns: None
         :rtype: None
         """
-        deleteing = Delete_Dialog(self, "Sale Completed")
+        deleteing = Delete_Dialog(self, "Row to Delete")
 
         if deleteing.userCancelled():
             return
@@ -895,7 +895,7 @@ class DisplayApp:
                 data[0],
                 data[1],
                 data[2],
-                data[3],
+                data[3].capitalize(),
                 data[4],
                 data[5],
                 data[6],
@@ -1412,7 +1412,7 @@ class Selling_Dialog(NumberListing_Dialog):
             return
         elif validation == -7:
             mults = self.parent.data[
-                self.parent.data["name"].str.match(self.result.get())
+                self.parent.data["name"].str.match(self.result.get(), case=False)
             ].index
             display_str = "Player name appears in multiple rows. Please choose an index shown below instead of naming the player\n"
             for idx in mults:
@@ -1448,13 +1448,13 @@ class Selling_Dialog(NumberListing_Dialog):
             if len(search) > 24:
                 return -4
             # player name entered is not in the dataframe
-            if not self.parent.data["name"].str.contains(search).any():
+            if not self.parent.data["name"].str.contains(search, case=False).any():
                 return -3
             # player name appears multiple times in the dataframe
             if (
                 len(
                     self.parent.data[
-                        self.parent.data["name"].str.match(self.result.get())
+                        self.parent.data["name"].str.match(search, case=False)
                     ].index
                 )
                 > 1
@@ -1484,7 +1484,7 @@ class Selling_Dialog(NumberListing_Dialog):
             self.result = int(self.result.get())
         except:
             self.result = self.parent.data[
-                self.parent.data["name"].str.match(self.result.get())
+                self.parent.data["name"].str.match(self.result.get(), case=False)
             ].index
             self.result = self.result[0]
 
@@ -1565,13 +1565,13 @@ class Delete_Dialog(Selling_Dialog):
             if len(search) > 24:
                 return -4
             # player name entered is not in the dataframe
-            if not self.parent.data["name"].str.contains(search).any():
+            if not self.parent.data["name"].str.contains(search, case=False).any():
                 return -3
             # player name appears multiple times in the dataframe
             if (
                 len(
                     self.parent.data[
-                        self.parent.data["name"].str.match(self.result.get())
+                        self.parent.data["name"].str.match(search, case=False)
                     ].index
                 )
                 > 1
@@ -1590,9 +1590,9 @@ class Delete_Dialog(Selling_Dialog):
             self.result = int(self.result.get())
         except:
             self.result = self.parent.data[
-                self.parent.data["name"].str.match(self.result.get())
+                self.parent.data["name"].str.match(self.result.get(), case=False)
             ].index
-            self.result = self.result[0] + 1
+            self.result = self.result[0]
 
         return
 
