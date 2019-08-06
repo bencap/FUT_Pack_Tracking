@@ -40,6 +40,8 @@ This file contains methods:
         * writeStats( self, stats ) - Displays the stats calculated in the stats window
         * handleDelete( self ) - Controls flow for deleting a row entry
         * postDelete( self, id ) - Posts and commits the delete request to the sql database
+        * handleEdit( self ) - Controls flow for editing a row entry
+        * postEdit( self, id, data ) - Posts and commits the edit request to the sql database
         * handleQuit( self, event ) - handles closing of the GUI
         * main( self ) - creates the main loop for the GUI
 
@@ -75,7 +77,7 @@ This file contains methods:
         * _on_mousewheel( self, event ) - Moves the items w/in the window on scroll action
         * _configure_window( self, event ) - Configures the window on resize events
 
-Created by Ben Capodanno on July 23rd, 2019. Updated July 31st, 2019.
+Created by Ben Capodanno on July 23rd, 2019. Updated August 6th, 2019.
 """
 
 import tkinter as tk
@@ -95,10 +97,17 @@ import stats
 # id (primary key)      pack_id     pack_type     pack_price     player      type       bid    bin  sold
 #       int               int       nchar(10)         int       nchar(24)  nchar(10)    int    int  int
 
+# test db
 DRIVER = "{SQL Server}"
 SERVER = "DESKTOP-5R7EE8O\\SQLEXPRESS"
-DATABASE = "player_packs"
-TABLE = "dbo.pack_tracking"
+DATABASE = "testDB"
+TABLE = "dbo.pack_test"
+
+# # production db
+# DRIVER = "{SQL Server}"
+# SERVER = "DESKTOP-5R7EE8O\\SQLEXPRESS"
+# DATABASE = "player_packs"
+# TABLE = "dbo.pack_tracking"
 
 
 class DisplayApp:
@@ -142,6 +151,8 @@ class DisplayApp:
             "manager",
             "coach",
         ]
+
+        self.PALLETE = ["#A6206A", "#2F9395", "#F8B195", "#474747", "#F6903D"]  # nice
 
         # create a tk object, which is the root window
         self.root = tk.Tk()
@@ -234,6 +245,7 @@ class DisplayApp:
         records = pd.DataFrame.from_records(list(self.cursor), columns=self.COLUMNS)
         self.data = records.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
         self.data.set_index("id", inplace=True)
+        self.data[["sold"]] = self.data[["sold"]].astype("Int64")
         self.curr_index = self.data.index
 
         return
@@ -391,6 +403,17 @@ class DisplayApp:
         )
         self.buttons.append(
             (
+                "edit record",
+                tk.Button(
+                    self.cntlframe,
+                    text="Edit Record",
+                    command=self.handleEdit,
+                    width=12,
+                ),
+            )
+        )
+        self.buttons.append(
+            (
                 "delete record",
                 tk.Button(
                     self.cntlframe,
@@ -470,6 +493,9 @@ class DisplayApp:
             self.data["pack_type"].str.match(str(curselection))
         ].index
 
+        self.pkBox.delete(0, "end")
+        for record in self.data.loc[self.curr_index]["pack_id"].unique():
+            self.pkBox.insert("end", record)
         self.handleWrite(self.COLUMNS, self.curr_index, reload=False, update=True)
 
         return
@@ -483,6 +509,9 @@ class DisplayApp:
         self.clearPlayerFrame()
         self.loadData()
         self.handleWrite(self.COLUMNS, self.curr_index, reload=True)
+        self.pkBox.delete(0, "end")
+        for record in self.data.loc[self.curr_index]["pack_id"].unique():
+            self.pkBox.insert("end", record)
         self.canvas.scrollwindow.focus_set()  # this isnt strictly necessary, but clears selections from the listboxes
 
     def handleNewPack(self):
@@ -590,7 +619,7 @@ class DisplayApp:
         :rtype: None
         """
 
-        query = "UPDATE " + TABLE + " SET " + "sold = (?) WHERE id = (?)"
+        query = "UPDATE " + TABLE + " SET sold = (?) WHERE id = (?)"
         self.cursor.execute(query, (sale_price, id))
         self.conn.commit()
 
@@ -643,22 +672,60 @@ class DisplayApp:
         lab = tk.Label(self.canvas.scrollwindow, text="id")
         lab.config(font=(8), anchor="center", width=9)
         lab.grid(row=0, column=0, padx=(7, 0))
+
         for col in enumerate(data):
             lab = tk.Label(self.canvas.scrollwindow, text=col[1])
             lab.config(font=(8), anchor="center", width=9)
             lab.grid(row=0, column=col[0] + 1, padx=(7, 0))
 
+        ttk.Separator(self.canvas.scrollwindow, orient=tk.HORIZONTAL).grid(
+            column=0, row=1, columnspan=10, sticky="ew"
+        )
+
         # grids and displays player data
+        # for maintenance, rows are placed like...
+        # row 0: headers
+        # row 1: separator
+        # row (1 through N) * 2: Data
+        # row ((1 through N) * 2) + 1 if the next row is a diff pack: separators
+
         for rdx, row in data.iterrows():
             lab = tk.Label(self.canvas.scrollwindow, text=rdx)
-            lab.config(font=(6))
-            lab.grid(row=rdx + 1, column=0, padx=(3, 0))
+            lab.config(
+                font=(6), foreground=self.PALLETE[row["pack_id"] % len(self.PALLETE)]
+            )
+            lab.grid(row=(rdx) * 2, column=0, padx=(3, 0))
+
             for col in enumerate(data):
+
                 lab = tk.Label(self.canvas.scrollwindow, text=row[col[1]])
                 lab.config(font=(6))
+
                 if col[1] == "player":
                     lab.config(width=8)
-                lab.grid(row=rdx + 1, column=col[0] + 1, padx=(3, 0))
+
+                if col[1] != "sold":
+                    lab.config(
+                        foreground=self.PALLETE[row["pack_id"] % len(self.PALLETE)]
+                    )
+                else:
+                    if np.isnan(row[col[1]]):
+                        lab.config(foreground="red")
+                    else:
+                        lab.config(foreground="green")
+
+                lab.grid(row=(rdx) * 2, column=col[0] + 1, padx=(3, 0))
+
+            # separate based on pack id. since index is not necessarily linear, get the series of items
+            # after the current index, then get the first index of that series to find the pack id of next item
+            # try/except catches the last row of data, but we don't need to separate as there is nothing after it
+            try:
+                if data["pack_id"].loc[rdx:].iloc[1] != row["pack_id"]:
+                    ttk.Separator(self.canvas.scrollwindow, orient=tk.HORIZONTAL).grid(
+                        column=0, row=(rdx * 2) + 1, columnspan=10, sticky="ew"
+                    )
+            except IndexError:
+                pass
 
         # update stats pane each time records are written
         # this keeps the stats pane consistent w/ all filters applied and any new players added
@@ -766,6 +833,76 @@ class DisplayApp:
 
         query = "DELETE FROM " + TABLE + " WHERE id = (?)"
         self.cursor.execute(query, id)
+        self.conn.commit()
+
+        return
+
+    def handleEdit(self):
+        """ handles workflow for editing a record
+        :returns: None
+        :rtype: None
+        """
+
+        # gets the item row to edit
+        editing = Delete_Dialog(self, "Item to Edit")
+        if editing.userCancelled():
+            return
+        id = editing.getResult()
+
+        edited = Editing_Dialog(self, self.COLUMNS, id, "Edit Values")
+        if edited.userCancelled():
+            return
+        edit = edited.getResult()
+
+        self.postEdit(id, edit)
+
+        if not self.pkBox.__contains__(edit[0]):
+            self.pkBox.insert("end", edit[0])
+
+        if not self.cstBox.__contains__(edit[2]):
+            self.cstBox.insert("end", edit[2])
+
+        self.handleWrite(self.COLUMNS, self.curr_index, reload=True, update=True)
+        return
+
+    def postEdit(self, id, data):
+        """ alters and commits the edit to DB table
+        :param id: The id of the row at which to insert
+        :type id: Integer
+        :param data: The new data values
+        :type data: List of types (int, int, string, string, string, int, int, int)
+        :returns: None
+        :rtype: None
+        """
+
+        query = (
+            "UPDATE "
+            + TABLE
+            + " SET pack_id=(?),"
+            + "pack_price=(?),"
+            + "pack_type=(?),"
+            + "name=(?),"
+            + "type=(?),"
+            + "bid=(?),"
+            + "bin=(?),"
+            + "sold=(?)"
+            + "WHERE id = (?)"
+        )
+
+        self.cursor.execute(
+            query,
+            (
+                data[0],
+                data[1],
+                data[2],
+                data[3],
+                data[4],
+                data[5],
+                data[6],
+                data[7],
+                id,
+            ),
+        )
         self.conn.commit()
 
         return
@@ -1459,6 +1596,216 @@ class Delete_Dialog(Selling_Dialog):
 
         return
 
+
+class Editing_Dialog(Listing_Dialog):
+    def __init__(self, parent, columns, id, title=None):
+
+        tk.Toplevel.__init__(self)
+
+        if title:
+            self.title(title)
+
+        self.parent = parent
+        self.columns = columns
+        self.cancelled = None
+        self.data = self.parent.data.loc[id]
+
+        body = tk.Frame(self)
+        self.result = self.body(body)
+        body.pack(padx=5, pady=5)
+
+        self.buttonbox()
+
+        self.grab_set()
+
+        self.protocol("WM_DELETE_WINDOW", self.cancel)
+
+        self.geometry(
+            "+%d+%d"
+            % (parent.root.winfo_rootx() + 100, parent.root.winfo_rooty() + 100)
+        )
+
+        self.wait_window(self)
+
+    def body(self, master):
+        """ creates the widgets for the dialog box (Override)
+        :param master: The frame to place widgets into
+        :type master: tk Frame
+        :returns: The results from the widgets
+        :rtype: Tuple of types (StrVar, List( StrVar ), StrVar, IntVar )
+        """
+
+        # list out headers for entry set
+        for header in enumerate(self.columns[1:]):
+            tk.Label(master, text=header[1]).grid(row=0, column=header[0])
+
+        # pack id entry field
+        s = tk.StringVar()
+        s.set(self.data[0])
+        entry = tk.Entry(master, textvariable=s)
+        entry.grid(row=1, column=0)
+        entry.focus()
+
+        # pack price entry field
+        t = tk.StringVar()
+        t.set(self.data[1])
+        tk.Entry(master, textvariable=t).grid(row=1, column=1)
+
+        # pack type entry field
+        u = tk.StringVar()
+        u.set(self.data[2])
+        tk.OptionMenu(master, u, *self.parent.PACKS).grid(row=1, column=2)
+
+        # player entry field
+        v = tk.StringVar()
+        v.set(self.data[3])
+        tk.Entry(master, textvariable=v).grid(row=1, column=3)
+
+        # item type
+        w = tk.StringVar()
+        w.set(self.data[4])
+        tk.OptionMenu(master, w, *self.parent.TYPES).grid(row=1, column=4)
+
+        # initial bid
+        x = tk.StringVar()
+        x.set(self.data[5])
+        tk.Entry(master, textvariable=x).grid(row=1, column=5)
+
+        # initial bin
+        y = tk.StringVar()
+        y.set(self.data[6])
+        tk.Entry(master, textvariable=y).grid(row=1, column=6)
+
+        # initial bin
+        z = tk.StringVar()
+        z.set(self.data[7])
+        tk.Entry(master, textvariable=z).grid(row=1, column=7)
+
+        return (s, t, u, v, w, x, y, z)
+
+    def ok(self, event=None):
+        """ handles actions for the click of the ok button (Override)
+        :returns: None
+        :rtype: None
+        """
+
+        validation = self.validate()
+
+        # handle different error codes. note errors cannot happen from option menus b/c of default values:
+        # 0 -> characters other than A-z, '
+        # -1 -> empty player name box
+        # -2 -> int less than 150 in bid price
+        # -3 -> int less than 200 in bin price
+        # -4 -> player name greater than 24 characters (would clash later w/ database storage)
+        # -5 -> sale price higher than bin
+        # -6 -> one of bid, bin, or qs not an integer
+
+        if validation == 0:
+            tk.messagebox.showerror(
+                "Error", "Please enter only valid characters in the player name box"
+            )
+            return
+        elif validation == -1:
+            tk.messagebox.showerror(
+                "Error", "Please enter a name in the player name box"
+            )
+            return
+        elif validation == -2:
+            tk.messagebox.showerror(
+                "Error",
+                "Please enter an integer greater than or equal to 150 for the initial bid",
+            )
+            return
+        elif validation == -3:
+            tk.messagebox.showerror(
+                "Error",
+                "Please enter an integer greater than or equal to 200 for the initial bin",
+            )
+            return
+        elif validation == -4:
+            tk.messagebox.showerror(
+                "Error", "Please keep names under 24 characters in length"
+            )
+            return
+        elif validation == -5:
+            tk.messagebox.showerror(
+                "Error", "Sale price must be equal to or less than bin price"
+            )
+            return
+        elif validation == -6:
+            tk.messagebox.showerror(
+                "Error",
+                "Please enter... \n"
+                + "- An integer greater than or equal to 150 for the initial bid \n"
+                + "- An integer greater than or equal to 200 for the initial bin \n"
+                + "- An integer greater than or equal to 0 for the quick sell price",
+            )
+            return
+        elif validation == -7:
+            tk.messagebox.showerror(
+                "Error", "Initial Bid price must be lower than initial BIN price"
+            )
+            return
+        else:
+            # applies the results and closes the dialog
+            self.withdraw()
+            self.update_idletasks()
+
+            self.apply()
+            self.cancel(cancelled=False)
+
+    def validate(self):
+        """ validates the information entered into the dialog box (Override)
+        :returns: A exit value related to the error or 1 if data is valid
+        :rtype: Integer
+        """
+
+        row = [item.get() for item in self.result]
+
+        try:
+            pack_id = int(row[0])
+            pack_price = int(row[1])
+            bid = int(row[5])
+            bin = int(row[6])
+            sold = int(row[7])
+        except ValueError:
+            return -6
+
+        try:
+            if not string_validator(row[3]):
+                return 0
+            if row[3] is "":
+                return -1
+            if bid < 150:
+                return -2
+            if bin < 200:
+                return -3
+            if bid > bin:
+                return -7
+            if len(row[3]) > 24:
+                return -4
+            if sold > bin:
+                return -5
+        except ValueError:
+            return -6
+
+        return 1
+
+    def apply(self):
+        """ alters types from tk xxxVar to builtins (Override)
+        :returns: None
+        :rtype: None
+        """
+
+        result = []
+        for record in self.result:
+            result.append(record.get())
+
+        self.result = result
+
+        return
+
+
 class ScrolledWindow(tk.Frame):
     """
     1. Master widget gets scrollbars and a canvas. Scrollbars are connected 
@@ -1541,7 +1888,7 @@ class ScrolledWindow(tk.Frame):
             self.canv.config(height=self.scrollwindow.winfo_reqheight())
 
 
-def string_validator(string, search=re.compile(r"[^A-z0-9.\']").search):
+def string_validator(string, search=re.compile(r"[^A-z0-9.\" \"\']").search):
     """ checks a string for valid characters
     :param string: a string to check
     :type string: String
